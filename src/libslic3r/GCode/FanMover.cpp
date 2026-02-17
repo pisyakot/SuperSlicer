@@ -49,7 +49,10 @@ float get_axis_value(const std::string& line, char axis)
     char match[3] = " X";
     match[1] = axis;
 
-    size_t pos = line.find(match) + 2;
+    size_t pos = line.find(match);
+    if (pos == std::string::npos)
+        return 0;
+    pos += 2;
     //size_t end = std::min(line.find(' ', pos + 1), line.find(';', pos + 1));
     // Try to parse the numeric value.
     const char* c = line.c_str();
@@ -73,12 +76,17 @@ void change_axis_value(std::string& line, char axis, const float new_value, cons
     line = line.replace(pos, end - pos, to_string_nozero(new_value, decimal_digits));
 }
 
-int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor) {
+int16_t get_fan_speed(const std::string &line, GCodeFlavor flavor, uint16_t fan_index) {
     if (line.compare(0, 4, "M106") == 0) {
         if (flavor == (gcfMach3) || flavor == (gcfMachinekit)) {
-            return (int16_t)get_axis_value(line, 'P');
+            return (int16_t) get_axis_value(line, 'P');
         } else {
-            return (int16_t)get_axis_value(line, 'S');
+            // mod aux
+            int16_t axis_p_value = (int16_t) get_axis_value(line, 'P');
+            if (axis_p_value == fan_index)
+                return (int16_t) get_axis_value(line, 'S');
+            else
+                return -1;
         }
     } else if (line.compare(0, 4, "M127") == 0 || line.compare(0, 4, "M107") == 0) {
         return 0;
@@ -216,7 +224,8 @@ void FanMover::_remove_slow_fan(int16_t min_speed, float past_sec) {
 std::string FanMover::_set_fan(int16_t speed, std::string_view comment) {
     const Tool* tool = m_writer.get_tool(m_current_extruder < 20 ? m_current_extruder : 0);
     std::string str = GCodeWriter::set_fan(m_writer.config.gcode_flavor.value, m_writer.config.gcode_comments.value,
-                                           speed, tool ? tool->fan_offset() : 0, m_writer.config.fan_percentage.value,
+                                           speed, fan_index, tool ? tool->fan_offset() : 0,
+                                           fan_index == 0 ? m_writer.config.fan_percentage.value : m_writer.config.aux_fan_percentage.value,
                                            comment);
     if(!str.empty() && str.back() == '\n')
         return str.substr(0,str.size()-1);
@@ -351,9 +360,13 @@ void FanMover::_process_gcode_line(GCodeReader& reader, const GCodeReader::GCode
         }
         case 'M':
         {
-            fan_speed = get_fan_speed(line.raw(), m_writer.config.gcode_flavor);
+            fan_speed = get_fan_speed(line.raw(), m_writer.config.gcode_flavor, fan_index);
             if (fan_speed >= 0) {
-                const auto fan_baseline = (m_writer.config.fan_percentage.value ? 100.0 : 255.0);
+                //const auto fan_baseline = (m_writer.config.fan_percentage.value ? 100.0 : 255.0);
+                const auto fan_baseline = ((fan_index == 0 ? m_writer.config.fan_percentage.value :
+                                                             m_writer.config.aux_fan_percentage.value) ?
+                                               100.0 :
+                                               255.0);
                 fan_speed = 100 * fan_speed / fan_baseline;
                 if (!m_is_custom_gcode) {
                     // if slow down => put in the queue. if not =>

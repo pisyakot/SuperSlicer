@@ -1217,8 +1217,13 @@ std::string GCodeWriter::unlift()
     return gcode;
 }
 
-std::string GCodeWriter::set_fan(const GCodeFlavor gcode_flavor, bool gcode_comments, uint8_t speed, uint8_t tool_fan_offset, bool is_fan_percentage, const std::string_view comment/*=""*/)
-{
+std::string GCodeWriter::set_fan(const GCodeFlavor gcode_flavor,
+                                 bool gcode_comments,
+                                 uint8_t speed,
+                                 unsigned int index,
+                                 uint8_t tool_fan_offset,
+                                 bool is_fan_percentage,
+                                 const std::string_view comment /*=""*/) {
 /*
     std::ostringstream gcode;
     if (speed == 0) {
@@ -1263,10 +1268,14 @@ std::string GCodeWriter::set_fan(const GCodeFlavor gcode_flavor, bool gcode_comm
     if (fan_speed == 0) {
         if ((gcfTeacup == gcode_flavor || gcfRepRap == gcode_flavor)) {
             gcode << "M106 S0";
+            if (index > 0)
+                gcode << " P" << index;
         } else if ((gcfMakerWare == gcode_flavor) || (gcfSailfish == gcode_flavor)) {
             gcode << "M127";
         } else {
             gcode << "M107";
+            if (index > 0)
+                gcode << " P" << index;
         }
         if (gcode_comments)
             gcode << " ; " << (comment.empty() ? "disable fan" : comment);
@@ -1274,15 +1283,21 @@ std::string GCodeWriter::set_fan(const GCodeFlavor gcode_flavor, bool gcode_comm
     } else {
         if ((gcfMakerWare == gcode_flavor) || (gcfSailfish == gcode_flavor)) {
             gcode << "M126 T";
+            gcode << (fan_baseline * (fan_speed / 100.0));
         } else {
             gcode << "M106 ";
             if ((gcfMach3 == gcode_flavor) || (gcfMachinekit == gcode_flavor)) {
                 gcode << "P";
+                gcode << (fan_baseline * (fan_speed / 100.0));
+                if (index > 0)
+                    gcode << " T" << index;
             } else {
                 gcode << "S";
+                gcode << (fan_baseline * (fan_speed / 100.0));
+                if (index > 0)
+                    gcode << " P" << index;
             }
         }
-        gcode << (fan_baseline * (fan_speed / 100.0));
         if (gcode_comments)
             gcode << " ; " << (comment.empty() ? "enable fan" : comment);
         gcode << "\n";
@@ -1290,11 +1305,24 @@ std::string GCodeWriter::set_fan(const GCodeFlavor gcode_flavor, bool gcode_comm
     return gcode.str();
 }
 
-std::string GCodeWriter::set_fan(const uint8_t speed, uint16_t default_tool)
-{
+std::string GCodeWriter::set_fan(const uint8_t speed, unsigned int index, uint16_t default_tool) {
     const Tool *tool = m_tool == nullptr ? get_tool(default_tool) : m_tool;
-    m_last_fan_speed = speed;
-    return GCodeWriter::set_fan(this->config.gcode_flavor.value, this->config.gcode_comments.value, speed, tool ? tool->fan_offset() : 0, this->config.fan_percentage.value);
+    if (index == 0)
+        m_last_fan_speed = speed;
+    else
+        m_last_aux_fan_speed = speed;
+
+    return GCodeWriter::set_fan(this->config.gcode_flavor.value, this->config.gcode_comments.value, speed, index,
+                                tool ? tool->fan_offset() : 0,
+                                index == 0 ? this->config.fan_percentage.value :
+                                             this->config.aux_fan_percentage.value);
+}
+std::string GCodeWriter::set_overlap(double over) {
+    std::ostringstream gcode;
+    gcode << "M999 P";
+    gcode << over;
+
+    return gcode.str();
 }
 
 } // namespace Slic3r

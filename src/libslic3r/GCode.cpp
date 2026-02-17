@@ -1801,7 +1801,11 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
 
     // Disable fan.
     if ((initial_extruder_id != (uint16_t) -1) && !this->config().start_gcode_manual && print.config().disable_fan_first_layers.get_at(initial_extruder_id)) {
-        preamble_to_put_start_layer.append(m_writer.set_fan(uint8_t(0), initial_extruder_id));
+        preamble_to_put_start_layer.append(m_writer.set_fan(uint8_t(0), 0, initial_extruder_id));
+    }
+    if ((initial_extruder_id != (uint16_t) -1) && !this->config().start_gcode_manual &&
+        print.config().disable_aux_fan_first_layers.get_at(initial_extruder_id)) {
+        preamble_to_put_start_layer.append(m_writer.set_fan(uint8_t(0), 2, initial_extruder_id));
     }
 
      this->m_throw_if_canceled();
@@ -2155,7 +2159,8 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
         _add_object_change_labels(gcode);
         file.write(gcode);
     }
-    file.write(m_writer.set_fan(uint8_t(0)));
+    file.write(m_writer.set_fan(uint8_t(0), 0));
+    file.write(m_writer.set_fan(uint8_t(0), 2));
 
     // adds tag for processor
     file.write_format(";%s%s\n", GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Role).c_str(), gcode_extrusion_role_to_string(GCodeExtrusionRole::Custom).c_str());
@@ -2439,22 +2444,38 @@ void GCodeGenerator::process_layers(
             output_stream.write(s);
         });
 
-    const auto fan_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
-            [this, &fan_mover = this->m_fan_mover, &config = this->config(), &writer = this->m_writer](std::string in)->std::string {
-        CNumericLocalesSetter locales_setter;
+    const auto fan_mover = tbb::make_filter<std::string, std::string>(
+        slic3r_tbb_filtermode::serial_in_order,
+        [this, &fan_mover = this->m_fan_mover, &config = this->config(),
+         &writer = this->m_writer](std::string in) -> std::string {
+            CNumericLocalesSetter locales_setter;
 
-        if (fan_mover.get() == nullptr)
-            fan_mover.reset(new Slic3r::FanMover(
-                writer,
-                std::abs((float)config.fan_speedup_time.value),
-                config.fan_speedup_time.value > 0,
-                config.use_relative_e_distances.value,
-                config.fan_speedup_overhangs.value,
-                (float)config.fan_kickstart.value));
-        //flush as it's a whole layer
-        this->m_throw_if_canceled();
-        return fan_mover->process_gcode(in, true);
-    });
+            if (fan_mover.get() == nullptr)
+                fan_mover.reset(
+                    new Slic3r::FanMover(writer, std::abs((float) config.fan_speedup_time.value),
+                                         config.fan_speedup_time.value > 0, config.use_relative_e_distances.value,
+                                         config.fan_speedup_overhangs.value, (float) config.fan_kickstart.value, 0));
+            // flush as it's a whole layer
+            this->m_throw_if_canceled();
+            return fan_mover->process_gcode(in, true);
+        });
+
+    const auto aux_fan_mover = tbb::make_filter<std::string, std::string>(
+        slic3r_tbb_filtermode::serial_in_order,
+        [this, &aux_fan_mover = this->m_aux_fan_mover, &config = this->config(),
+         &writer = this->m_writer](std::string in) -> std::string {
+            CNumericLocalesSetter locales_setter;
+
+            if (aux_fan_mover.get() == nullptr)
+                aux_fan_mover.reset(new Slic3r::FanMover(writer, std::abs((float) config.aux_fan_speedup_time.value),
+                                                         config.aux_fan_speedup_time.value > 0,
+                                                         config.use_relative_e_distances.value,
+                                                         config.aux_fan_speedup_overhangs.value,
+                                                         (float) config.aux_fan_kickstart.value, 2));
+            // flush as it's a whole layer
+            this->m_throw_if_canceled();
+            return aux_fan_mover->process_gcode(in, true);
+        });
 
     tbb::filter<void, LayerResult> pipeline_to_layerresult = layer_select & generator;
     if (m_spiral_vase)
@@ -2462,7 +2483,7 @@ void GCodeGenerator::process_layers(
     if (m_pressure_equalizer)
         pipeline_to_layerresult = pipeline_to_layerresult & pressure_equalizer;
 
-    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & fan_mover;
+    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & fan_mover & aux_fan_mover;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -2589,20 +2610,34 @@ void GCodeGenerator::process_layers(
             output_stream.write(s);
         });
 
-    const auto fan_mover = tbb::make_filter<std::string, std::string>(slic3r_tbb_filtermode::serial_in_order,
-        [this, &fan_mover = this->m_fan_mover, &config = this->config(), &writer = this->m_writer](std::string in)->std::string {
-        if (fan_mover.get() == nullptr)
-            fan_mover.reset(new Slic3r::FanMover(
-                writer,
-                std::abs((float)config.fan_speedup_time.value),
-                config.fan_speedup_time.value > 0,
-                config.use_relative_e_distances.value,
-                config.fan_speedup_overhangs.value,
-                (float)config.fan_kickstart.value));
-        this->m_throw_if_canceled();
-        //flush as it's a whole layer
-        return fan_mover->process_gcode(in, true);
-    });
+    const auto fan_mover = tbb::make_filter<std::string, std::string>(
+        slic3r_tbb_filtermode::serial_in_order,
+        [this, &fan_mover = this->m_fan_mover, &config = this->config(),
+         &writer = this->m_writer](std::string in) -> std::string {
+            if (fan_mover.get() == nullptr)
+                fan_mover.reset(
+                    new Slic3r::FanMover(writer, std::abs((float) config.fan_speedup_time.value),
+                                         config.fan_speedup_time.value > 0, config.use_relative_e_distances.value,
+                                         config.fan_speedup_overhangs.value, (float) config.fan_kickstart.value, 0));
+            this->m_throw_if_canceled();
+            // flush as it's a whole layer
+            return fan_mover->process_gcode(in, true);
+        });
+
+    const auto aux_fan_mover = tbb::make_filter<std::string, std::string>(
+        slic3r_tbb_filtermode::serial_in_order,
+        [this, &aux_fan_mover = this->m_aux_fan_mover, &config = this->config(),
+         &writer = this->m_writer](std::string in) -> std::string {
+            if (aux_fan_mover.get() == nullptr)
+                aux_fan_mover.reset(new Slic3r::FanMover(writer, std::abs((float) config.aux_fan_speedup_time.value),
+                                                         config.aux_fan_speedup_time.value > 0,
+                                                         config.use_relative_e_distances.value,
+                                                         config.aux_fan_speedup_overhangs.value,
+                                                         (float) config.aux_fan_kickstart.value, 2));
+            this->m_throw_if_canceled();
+            // flush as it's a whole layer
+            return aux_fan_mover->process_gcode(in, true);
+        });
 
     tbb::filter<void, LayerResult> pipeline_to_layerresult = layer_select & generator;
     if (m_spiral_vase)
@@ -2610,7 +2645,7 @@ void GCodeGenerator::process_layers(
     if (m_pressure_equalizer)
         pipeline_to_layerresult = pipeline_to_layerresult & pressure_equalizer;
 
-    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & fan_mover;
+    tbb::filter<LayerResult, std::string> pipeline_to_string = cooling & fan_mover & aux_fan_mover;
     if (m_find_replace)
         pipeline_to_string = pipeline_to_string & find_replace;
 
@@ -2763,7 +2798,8 @@ std::string GCodeGenerator::placeholder_parser_process(
             }
         }
         // add tag for fan_mover, to avoid to touch this section.
-        if (!output.empty() && (m_config.gcode_comments || m_config.fan_speedup_time.value != 0 || m_config.fan_kickstart.value != 0 )) {
+        if (!output.empty() && (m_config.gcode_comments || m_config.fan_speedup_time.value != 0 || m_config.fan_kickstart.value != 0 ||
+             m_config.aux_fan_speedup_time.value != 0 || m_config.aux_fan_kickstart.value != 0)) {
             output = "; custom gcode: " + name + "\n" + output;
             check_add_eol(output);
             output += "; custom gcode end: "+ name + "\n";
@@ -6321,6 +6357,8 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
         this->config().max_gcode_per_second.value :
         0;
     double fan_speed;
+    double aux_fan_speed;
+    double overlap;
     //if (max_gcode_per_second > 0) {
     //    // if (broken) max_gcode_per_second is used, simplify the segment with it
     //    const int32_t gcode_buffer_window = this->config().gcode_command_buffer.value;
@@ -6345,7 +6383,10 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
     // old 2.5 way
     distf_t current_scaled_min_length = scaled_min_length;
     if (max_gcode_per_second > 0) {
-        current_scaled_min_length = std::max(current_scaled_min_length, scale_d(_compute_speed_mm_per_sec(path, speed_mm_per_sec, fan_speed, nullptr)) / max_gcode_per_second);
+        current_scaled_min_length = std::max(current_scaled_min_length,
+                                             scale_d(_compute_speed_mm_per_sec(path, speed_mm_per_sec, fan_speed,
+                                                                               aux_fan_speed, nullptr)) /
+                                                 max_gcode_per_second);
     }
     if (current_scaled_min_length > 0 && !simplifed_path.polyline.has_arc() && !config().spiral_vase) {
         // it's an alternative to simplifed_path.simplify(scale_(this->config().min_length)); with more enphasis on
@@ -7178,7 +7219,11 @@ std::string GCodeGenerator::_extrude(ExtrusionPath &path, const std::string_view
     return gcode;
 }
 
-double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, const double set_speed, double &fan_speed, std::string *comment) const {
+double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath &path,
+                                                   const double set_speed,
+                                                   double &fan_speed,
+                                                   double &aux_fan_speed,
+                                                   std::string *comment) const {
 
     float factor = 1;
     double speed = set_speed;
@@ -7335,9 +7380,11 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
         assert(this->layer()->id() > 0);
         double my_speed = speed;
         if(comment) *comment = "overhangs_speed";
-        auto [speed_ratio, over_fan_speed] = ExtrusionProcessor::calculate_overhang_speed(path, this->m_config, m_writer.tool()->id());
+        auto [speed_ratio, over_fan_speed, over_aux_fan_speed] = ExtrusionProcessor::calculate_overhang_speed(path, this->m_config,
+                                                                                 m_writer.tool()->id());
         assert(speed_ratio == -1 || (speed_ratio >= 0 && speed_ratio <= 1));
         assert(over_fan_speed == -1 || (over_fan_speed >= 0 && over_fan_speed <= 100));
+        assert(over_aux_fan_speed == -1 || (over_aux_fan_speed >= 0 && over_aux_fan_speed <= 100));
         if (speed_ratio >= 0) {
             double other_speed = set_speed;
             if (path.role().is_overhang()) {
@@ -7381,6 +7428,8 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
         if (over_fan_speed >= 0) {
             fan_speed = over_fan_speed;
         }
+        if (over_aux_fan_speed >= 0)
+            aux_fan_speed = over_aux_fan_speed;
     }
 
 
@@ -7462,6 +7511,8 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath& path, co
     if (!m_speed_override.empty() && m_speed_override.back().second->fan_speed_percent > 0) {
         fan_speed = (double)m_speed_override.back().second->fan_speed_percent;
     }
+
+    //???????
 
     return speed;
 }
@@ -7901,7 +7952,9 @@ std::string GCodeGenerator::_before_extrude(const ExtrusionPath &path, const std
 
     // compute speed here to be able to know it for travel_deceleration_use_target
     std::string speed_comment = "";
-    speed_mm_s = _compute_speed_mm_per_sec(path, speed_mm_s, m_overhang_fan_override, m_config.gcode_comments ? &speed_comment : nullptr);
+    speed_mm_s = _compute_speed_mm_per_sec(path, speed_mm_s, m_overhang_fan_override,
+                                           m_overhang_aux_fan_override, m_config.gcode_comments ? &speed_comment :
+                                                                                                 nullptr);
 
     auto[/*double*/pa, /*double*/travel_pa] = _compute_pressure_advance(path);
     if (!m_speed_override.empty() && m_speed_override.back().second->pressure_adv > 0) {
@@ -7913,6 +7966,17 @@ std::string GCodeGenerator::_before_extrude(const ExtrusionPath &path, const std
     } else {
         m_writer.set_pressure_advance(pa);
     }
+
+    /*
+    if (path.attributes().overhang_attributes.has_value()) {
+        overlap =
+            std::min(100 - 100 * std::min(1.f, path.attributes().overhang_attributes->start_distance_from_prev_layer),
+                     100 - 100 * std::min(1.f, path.attributes().overhang_attributes->end_distance_from_prev_layer));
+    }
+    else
+        overlap = 100;
+    gcode += this->m_writer.set_overlap(m_overlap_override);
+    */
 
     gcode += this->_travel_before_extrude(path, description_in, speed_mm_s);
 
@@ -8030,6 +8094,9 @@ std::string GCodeGenerator::_before_extrude(const ExtrusionPath &path, const std
         if (m_overhang_fan_override >= 0) {
             gcode += ";_SET_MIN_FAN_SPEED" + std::to_string(int(m_overhang_fan_override)) + "\n";
         }
+        if (m_overhang_aux_fan_override >= 0) {
+            gcode += ";_SET_MIN_FAN_SPEED & AUX" + std::to_string(int(m_overhang_aux_fan_override)) + "\n";
+        }
         // comment to be on the same line as the speed command.
         cooling_marker_setspeed_comments = GCodeGenerator::_cooldown_marker_speed[uint8_t(grole)];
     }
@@ -8046,6 +8113,10 @@ std::string GCodeGenerator::_after_extrude(const ExtrusionPath &path) {
         if (m_overhang_fan_override >= 0) {
             gcode += ";_RESET_MIN_FAN_SPEED\n";
             m_overhang_fan_override = -1.;
+        }
+        if (m_overhang_aux_fan_override >= 0) {
+            gcode += ";_RESET_MIN_FAN_SPEED & AUX\n";
+            m_overhang_aux_fan_override = -1.;
         }
         {
             // Notify Coolingbuffer that the current extrusion end.

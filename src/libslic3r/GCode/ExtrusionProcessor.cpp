@@ -246,14 +246,14 @@ ExtrusionEntityCollection calculate_and_split_overhanging_extrusions(const Extru
 };
 
 
-std::pair<float,float> calculate_overhang_speed(const ExtrusionPath &path,
+std::tuple<float, float, float> calculate_overhang_speed(const ExtrusionPath &path,
                               const FullPrintConfig     &config,
                               size_t                     extruder_id)
 {
     const ExtrusionPropertyOverhang *overhang_attributes = path.overhang_attributes();
     assert(overhang_attributes);
     if(!overhang_attributes)
-        return {-1, -1};
+        return {-1, -1, -1};
     float speed_ratio = 0; // 0: overhangs speed, 1= perimeter/externalperimeter speed.
     float fan_speed = -1;
     if (config.overhangs_dynamic_speed.is_enabled()) {
@@ -310,7 +310,30 @@ std::pair<float,float> calculate_overhang_speed(const ExtrusionPath &path,
                      graph.interpolate(100 - 100 * std::min(1.f, overhang_attributes->end_distance_from_prev_layer)));
         assert(fan_speed >= 0 && fan_speed <= 100);
     }
-    return {speed_ratio, fan_speed};
+
+    float aux_fan_speed = -1;
+
+
+    if (config.overhangs_dynamic_aux_fan_speed.is_enabled(extruder_id) &&
+        overhang_attributes->start_distance_from_prev_layer > 0 &&
+        overhang_attributes->end_distance_from_prev_layer > 0) {
+        GraphData graph = config.overhangs_dynamic_aux_fan_speed.get_at(extruder_id);
+        // interpolate
+        assert((overhang_attributes->start_distance_from_prev_layer >= 0 &&
+                overhang_attributes->start_distance_from_prev_layer <= 1) ||
+               overhang_attributes->start_distance_from_prev_layer == 2);
+        assert((overhang_attributes->end_distance_from_prev_layer >= 0 &&
+                overhang_attributes->end_distance_from_prev_layer <= 1) ||
+               overhang_attributes->end_distance_from_prev_layer == 2);
+
+        aux_fan_speed =
+            std::min(graph.interpolate(
+                         100 - 100 * std::min(1.f, overhang_attributes->start_distance_from_prev_layer)),
+                     graph.interpolate(
+                         100 - 100 * std::min(1.f, overhang_attributes->end_distance_from_prev_layer)));
+        assert(aux_fan_speed >= 0 && aux_fan_speed <= 100);
+    }
+    return {speed_ratio, fan_speed, aux_fan_speed};
 }
 
 

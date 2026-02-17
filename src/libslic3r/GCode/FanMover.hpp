@@ -64,13 +64,19 @@ private:
     // The output of process_layer()
     std::string m_process_output;
 
+    uint16_t fan_index = 0;
+
 public:
     FanMover(const GCodeWriter& writer, const float nb_seconds_delay, const bool with_D_option, const bool relative_e,
-        const bool only_overhangs, const float kickstart)
+             const bool only_overhangs, const float kickstart, uint16_t fan_index)
         : regex_fan_speed("S[0-9]+"), 
         nb_seconds_delay(nb_seconds_delay>0 ? std::max(0.01f,nb_seconds_delay) : 0),
         with_D_option(with_D_option)
-        , relative_e(relative_e), only_overhangs(only_overhangs), kickstart(kickstart), m_writer(writer){}
+        , relative_e(relative_e)
+        , only_overhangs(only_overhangs)
+        , kickstart(kickstart)
+        , m_writer(writer)
+        , fan_index(fan_index) {}
 
     // Adds the gcode contained in the given string to the analysis and returns it after removing the workcodes
     const std::string& process_gcode(const std::string& gcode, bool flush);

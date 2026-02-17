@@ -152,7 +152,8 @@ bool GCodeViewer::Path::matches(const GCodeProcessorResult::MoveVertex& move, co
                 role == move.extrusion_role &&
                 move.position.z() <= sub_paths.front().first.position.z() &&
                 feedrate == move.feedrate &&
-                fan_speed == move.fan_speed &&
+                fan_speed == move.fan_speed && aux_fan_speed == move.aux_fan_speed &&
+                overlap == move.overlap &&
                 compare.height.is_same_value(height, move.height) &&
                 compare.width.is_same_value(width, move.width) &&
                 temperature == move.temperature;
@@ -197,7 +198,11 @@ void GCodeViewer::TBuffer::add_path(const GCodeProcessorResult::MoveVertex& move
     // use rounding to reduce the number of generated paths
     paths.push_back({ move.type, move.extrusion_role, move.delta_extruder,
         move.height, move.width,
-        move.feedrate, move.fan_speed, move.temperature,
+                     move.feedrate,
+                     move.fan_speed,
+                     move.aux_fan_speed,
+                     move.overlap,
+                     move.temperature,
         move.volumetric_rate(), move.mm3_per_mm, move.extruder_id, move.cp_color_id, move.object_id, { { endpoint, endpoint } }, move.move_time });
 }
 
@@ -740,6 +745,8 @@ GCodeViewer::Extrusions::Range *GCodeViewer::Extrusions::Ranges::get(EViewType t
     case EViewType::Width:       return &this->width;
     case EViewType::Feedrate:    return &this->feedrate;
     case EViewType::FanSpeed:    return &this->fan_speed;
+    case EViewType::AuxFanSpeed: return &this->aux_fan_speed;
+    case EViewType::Overlap:     return &this->overlap;
     case EViewType::Temperature: return &this->temperature;
     case EViewType::LayerTime:   return &this->layer_time[uint8_t(mode)];
     case EViewType::Chronology:  return &this->elapsed_time[uint8_t(mode)];
@@ -759,6 +766,8 @@ GCodeViewer::Extrusions::Ranges::Ranges(uint8_t max_decimals) :
             feedrate(std::min(max_decimals, uint8_t(1))),
             // Color mapping by fan speed.
             fan_speed(0),
+            aux_fan_speed(0),
+            overlap(0),
             // Color mapping by volumetric extrusion rate.
             volumetric_rate(max_decimals),
             // Color mapping by volumetric extrusion mm3/mm.
@@ -788,6 +797,8 @@ float GCodeViewer::Path::get_value(EViewType type) const
     case EViewType::Width:          { return this->width;}
     case EViewType::Feedrate:       { return this->feedrate;  }
     case EViewType::FanSpeed:       { return this->fan_speed;  }
+    case EViewType::AuxFanSpeed:    { return this->aux_fan_speed; }
+    case EViewType::Overlap:        { return this->overlap; }
     case EViewType::Temperature:    { return this->temperature; }
     case EViewType::Chronology:     { return this->elapsed_time/*[static_cast<size_t>(m_time_estimate_mode)]*/; }
     case EViewType::VolumetricRate: { return this->volumetric_rate; }
@@ -1577,6 +1588,8 @@ void GCodeViewer::refresh(const GCodeProcessorResult& gcode_result, const std::v
                 // disabled: you can do that by disabling custom yourself, or remove outliers if any.
                 m_extrusions.ranges.width.update_from(curr.width);
                 m_extrusions.ranges.fan_speed.update_from(curr.fan_speed);
+                m_extrusions.ranges.aux_fan_speed.update_from(curr.aux_fan_speed);
+                m_extrusions.ranges.overlap.update_from(curr.overlap);
                 m_extrusions.ranges.temperature.update_from(curr.temperature);
                 // if (curr.extrusion_role != GCodeExtrusionRole::Custom || is_visible(GCodeExtrusionRole::Custom)) {
                 // // disabled: you can do that by disabling custom yourself, or remove outliers if any.
@@ -3106,6 +3119,8 @@ void GCodeViewer::refresh_render_paths(bool keep_sequential_current_first, bool 
         case EViewType::Width:          { color = m_extrusions.ranges.width.get_color_at(path.width); break; }
         case EViewType::Feedrate:       { color = m_extrusions.ranges.feedrate.get_color_at(path.feedrate); break; }
         case EViewType::FanSpeed:       { color = m_extrusions.ranges.fan_speed.get_color_at(path.fan_speed); break; }
+        case EViewType::AuxFanSpeed:    { color = m_extrusions.ranges.aux_fan_speed.get_color_at(path.aux_fan_speed); break; }
+        case EViewType::Overlap:        { color = m_extrusions.ranges.overlap.get_color_at(path.overlap); break; }
         case EViewType::Temperature:    { color = m_extrusions.ranges.temperature.get_color_at(path.temperature); break; }
         case EViewType::LayerTime:      {
             if (!m_layers_times.empty() &&
@@ -4463,6 +4478,8 @@ void GCodeViewer::render_legend(float& legend_height)
                          _u8L("Width (mm)"),
                          _u8L("Speed (mm/s)"),
                          _u8L("Fan speed (%)"),
+                         _u8L("Aux fan speed (%)"),
+                         _u8L("Overlap"),
                          _u8L("Temperature (°C)"),
                          _u8L("Volumetric flow rate (mm³/s)"),
                          _u8L("Extrusion section (mm³/mm)"),
@@ -4472,7 +4489,8 @@ void GCodeViewer::render_legend(float& legend_height)
                          _u8L("Filament"),
                          _u8L("Color Print"),
                          _u8L("Object") };
-        view_options_id = { 0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 10, 11, 12, 13 };
+        //view_options_id = { 0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 10, 11, 12, 13 };
+        view_options_id = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
         assert(view_options_id.size() == size_t(EViewType::Count));
         assert(view_options_id.back() < size_t(EViewType::Count));
     }
@@ -4482,6 +4500,8 @@ void GCodeViewer::render_legend(float& legend_height)
                          _u8L("Width (mm)"),
                          _u8L("Speed (mm/s)"),
                          _u8L("Fan speed (%)"),
+                         _u8L("Aux fan speed (%)"),
+                         _u8L("Overlap"),
                          _u8L("Temperature (°C)"),
                          _u8L("Volumetric flow rate (mm³/s)"),
                          _u8L("Extrusion section (mm³/mm)"),
@@ -4489,7 +4509,8 @@ void GCodeViewer::render_legend(float& legend_height)
                          _u8L("Filament"),
                          _u8L("Color Print"),
                          _u8L("Object") };
-        view_options_id = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13 };
+        //view_options_id = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13 };
+        view_options_id = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
         assert(view_options_id.size() == size_t(EViewType::Count) - 2);
         assert(view_options_id.back() < size_t(EViewType::Count));
         if (view_type == EViewType::LayerTime || view_type == EViewType::Chronology )

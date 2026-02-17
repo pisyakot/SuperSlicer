@@ -1082,6 +1082,8 @@ void GCodeProcessor::reset()
     m_forced_height = 0.0f;
     m_mm3_per_mm = 0.0f;
     m_fan_speed = 0.0f;
+    m_aux_fan_speed = 0.0f;
+    m_overlap = 0.0f;
     m_z_offset = 0.0f;
     m_speed_factor_override_percentage.clear();
     m_extrude_factor_override_percentage.clear();
@@ -2012,6 +2014,21 @@ void GCodeProcessor::process_gcode_line(const GCodeReader::GCodeLine& line, bool
                         break;
                     default:
                         break;
+                    }
+                    break;
+                case '9':
+                    switch (cmd[2]) {
+                    case '9':
+                        switch (cmd[3]) {
+                        case '9': {
+                            float new_overlap;
+                            if (line.has_value('P', new_overlap))
+                                m_overlap = new_overlap;
+                            else
+                                m_overlap = 0.0f;
+                            break;
+                        } // Set extruder temperature
+                        }
                     }
                     break;
                 default:
@@ -3652,19 +3669,36 @@ void GCodeProcessor::process_M104(const GCodeReader::GCodeLine& line)
 
 void GCodeProcessor::process_M106(const GCodeReader::GCodeLine& line)
 {
-    if (!line.has('P')) {
+    int tool = 0;
+    if (!line.has_value('P', tool) || tool == 1) {
         // The absence of P means the print cooling fan, so ignore anything else.
         float new_fan_speed;
         if (line.has_value('S', new_fan_speed))
             m_fan_speed = (100.0f / 255.0f) * new_fan_speed;
         else
             m_fan_speed = 100.0f;
+    } else if (tool == 2) {
+        float new_aux_fan_speed;
+        if (line.has_value('S', new_aux_fan_speed))
+            m_aux_fan_speed = (100.0f / 255.0f) * new_aux_fan_speed;
+        else
+            m_aux_fan_speed = 100.0f;
     }
 }
 
 void GCodeProcessor::process_M107(const GCodeReader::GCodeLine& line)
 {
-    m_fan_speed = 0.0f;
+    int tool;
+    if (line.has_value('P', tool)) {
+        if (tool == 1) {
+            m_fan_speed = 0.0f;
+        } else if (tool == 2) {
+            m_aux_fan_speed = 0.0f;
+        }
+    } else {
+        // The absence of P means the print cooling fan.
+        m_fan_speed = 0.0f;
+    }
 }
 
 void GCodeProcessor::process_M108(const GCodeReader::GCodeLine& line)
@@ -4879,7 +4913,7 @@ void GCodeProcessor::store_move_vertex(EMoveType type, bool internal_only)
         m_width,
         (m_height == 0 && m_forced_height > 0) ? m_forced_height : m_height,
         m_mm3_per_mm,
-        m_fan_speed,
+        m_fan_speed, m_aux_fan_speed, m_overlap,
         m_extruder_temps[m_extruder_id],
         m_current_time[0], // note: m_time_processor.machines[0].time, is too slow to recompute. it will be updated when recomputed.
         m_layer_id,

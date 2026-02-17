@@ -3493,6 +3493,8 @@ void TabFilament::toggle_options()
             || m_config->opt_float("slowdown_below_layer_time", 0) > 0, 0);
 
         toggle_option("overhangs_fan_speed", !m_config->is_enabled("overhangs_dynamic_fan_speed", 0), 0);
+        toggle_option("max_aux_fan_speed", m_config->opt_float("aux_fan_below_layer_time", 0) > 0, 0);
+        toggle_option("overhangs_aux_fan_speed", !m_config->is_enabled("overhangs_dynamic_aux_fan_speed", 0), 0);
     }
 
     bool use_pa = m_config->option("filament_pressure_advance")->is_enabled(0);

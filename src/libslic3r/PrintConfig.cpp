@@ -914,6 +914,23 @@ void PrintConfigDef::init_fff_params()
     def->can_be_disabled = true;
     def->set_default_value(enable_default_option(new ConfigOptionInts{ 100 }));
 
+    def = this->add("bridge_aux_fan_speed", coInts);
+    def->label = L("Bridge Infill aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L(
+        "This aux fan speed is enforced during bridges and overhangs. It won't slow down the aux fan if it's "
+        "currently running at a higher speed."
+        "\nSet to 0 to stop the aux fan."
+        "\nIf disabled, default aux fan speed will be used."
+        "\nCan be disabled by disable_aux_fan_first_layers and increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comPrusa;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(enable_default_option(new ConfigOptionInts{100}));
+
     def = this->add("bridge_fill_pattern", coEnum);
     def->label = L("Bridging fill pattern");
     def->category = OptionCategory::infill;
@@ -1393,6 +1410,24 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
     def->aliases = { "min_fan_speed" }; // only if "fan_always_on"
 
+    // aux
+    def = this->add("default_aux_fan_speed", coInts);
+    def->label = L("Default aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L(
+        "Default speed for the aux fan, to set the speed for features where there is no aux fan control. Useful "
+        "for PLA and other low-temp filament."
+        "\nSet 0 to disable the aux fan by default. Useful for ABS and other high-temp filaments."
+        "\nIf disabled, no aux fan speed command will be emmited when possible (if a feature set a speed, "
+        "it won't be reverted).");
+    def->mode = comSimpleAE | comSuSi;
+    def->min = 0;
+    def->max = 100;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
+    def->aliases = {"min_aux_fan_speed"}; // only if "aux_fan_always_on"
+
     def = this->add("default_print_profile", coString);
     def->label = L("Default print profile");
     def->tooltip = L("Default print profile associated with the current printer profile. "
@@ -1427,6 +1462,19 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert | comPrusa;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionInts { 1 });
+
+    // aux
+    def = this->add("disable_aux_fan_first_layers", coInts);
+    def->label = L("Disable aux fan for the first");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("You can set this to a positive value to disable aux fan at all "
+                     "during the first layers, so that it does not make adhesion worse.");
+    def->sidetext = L("layers");
+    def->min = 0;
+    def->max = 1000;
+    def->mode = comExpert | comPrusa;
+    def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionInts{1});
 
     def = this->add("dont_support_bridges", coBool);
     def->label = L("Don't support bridges");
@@ -1681,6 +1729,26 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
+
+    // aux
+    def = this->add("external_perimeter_aux_fan_speed", coInts);
+    def->label = L("External perimeter aux fan speed");
+    def->tooltip = L(
+        "When set to a non-zero value this aux fan speed is used only for external perimeters (visible "
+        "ones) and thin walls."
+        "\nSet to 0 to stop the aux fan."
+        "\nIf disabled, the default aux fan speed will be used."
+        "\nExternal perimeters can benefit from higher aux fan speed to improve surface finish, "
+        "while internal perimeters, infill, etc. benefit from lower aux fan speed to improve layer adhesion."
+        "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer and "
+        "increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
 
     def = this->add("external_perimeter_overlap", coPercent);
     def->label = L("external perimeter overlap");
@@ -1956,6 +2024,17 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionPercents{ 0 });
 
+    // aux
+    def = this->add("extruder_aux_fan_offset", coPercents);
+    def->label = L("Extruder aux fan offset");
+    def->category = OptionCategory::extruders;
+    def->tooltip = L(
+        "This offset wil be added to all aux fan values set in the filament properties. It won't make them "
+        "go higher than 100% nor lower than 0%.");
+    def->sidetext = L("%");
+    def->mode = comExpert | comSuSi;
+    def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionPercents{0});
 
     def = this->add("extrusion_axis", coString);
     def->label = L("Extrusion axis");
@@ -2052,6 +2131,21 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert | comPrusa;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionFloats { 60 });
+
+      // aux
+    def = this->add("aux_fan_below_layer_time", coFloats);
+    def->label = L("Enable aux fan if layer print time is below");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("If layer print time is estimated below this number of seconds, aux fan will be enabled "
+                     "and its speed will be calculated by interpolating the default and maximum speeds."
+                     "\nSet zero to disable.");
+    def->sidetext = L("approximate seconds");
+    def->min = 0;
+    def->max = 1000;
+    def->mode = comExpert | comPrusa;
+    def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionFloats{60});
+
 
     def = this->add("filament_colour", coStrings);
     def->label = L("Color");
@@ -3149,6 +3243,23 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionInts { 4 });
 
+    // aux
+    def = this->add("full_aux_fan_speed_layer", coInts);
+    def->label = L("Full aux fan speed at layer");
+    def->category = OptionCategory::filament;
+    def->tooltip = L(
+        "Aux fan speed will be ramped up linearly from zero at layer \"disable_aux_fan_first_layers\" "
+        "to maximum at layer \"full_fan_speed_layer\". "
+        "\"full_aux_fan_speed_layer\" will be ignored if equal or lower than \"disable_aux_fan_first_layers\", in "
+        "which case "
+        "the aux fan will be running at maximum allowed speed at layer \"disable_aux_fan_first_layers\" + 1."
+        "\nset 0 to disable");
+    def->min = 0;
+    def->max = 1000;
+    def->mode = comExpert | comPrusa;
+    def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionInts{4});
+
     def = this->add("fuzzy_skin", coEnum);
     def->label = L("Fuzzy Skin");
     def->category = OptionCategory::fuzzy_skin;
@@ -3236,6 +3347,23 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
+
+    // aux
+    def = this->add("gap_fill_aux_fan_speed", coInts);
+    def->label = L("Gap fill aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all gap fill Perimeter moves"
+                     "\nSet to 0 to stop the aux fan."
+                     "\nIf disabled, default aux fan speed will be used."
+                     "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer and "
+                     "increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comExpert | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
 
     def = this->add("gap_fill_flow_match_perimeter", coPercent);
     def->label = L("Cap with perimeter flow");
@@ -3714,6 +3842,23 @@ void PrintConfigDef::init_fff_params()
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
 
+    // aux
+    def = this->add("infill_aux_fan_speed", coInts);
+    def->label = L("Internal Infill aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all Internal Infill moves"
+                     "\nSet to 0 to stop the aux fan."
+                     "\nIf disabled, default aux fan speed will be used."
+                     "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer and "
+                     "increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comExpert | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
+
     def = this->add("infill_filled_bottom", coBool);
     def->label = L("GapFill for bottom infill areas");
     def->category = OptionCategory::infill;
@@ -3802,6 +3947,25 @@ void PrintConfigDef::init_fff_params()
     def->category = OptionCategory::perimeter;
     def->mode = comExpert | comPrusa;
     def->set_default_value(new ConfigOptionBool(false));
+
+    // aux
+    def = this->add("internal_bridge_aux_fan_speed", coInts);
+    def->label = L("Internal Bridge Infill aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L(
+        "This aux fan speed is enforced during all infill bridges. It won't slow down the aux fan if it's "
+        "currently running at a higher speed."
+        "\nSet to 0 to stop the aux fan."
+        "\nIf disabled, Bridge aux fan speed will be used."
+        "\nCan be disabled by disable_aux_fan_first_layers and increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
+    def->aliases = {"bridge_internal_aux_fan_speed"};
 
     def = this->add("internal_bridge_acceleration", coFloatOrPercent);
     def->label = L("Internal bridges ");
@@ -4049,6 +4213,27 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(true));
 
+    // aux
+    def = this->add("aux_fan_speedup_time", coFloat);
+    def->label = L("Aux fan startup delay");
+    def->category = OptionCategory::firmware;
+    def->tooltip = L(
+        "Move the aux fan start in the past by at least this delay (in seconds, you can use decimals)."
+        " It assumes infinite acceleration for this time estimation, and will only take into account G1 and G0 moves."
+        "\nIt won't move aux fan comands from custom gcodes (they act as a sort of 'barrier')."
+        "\nIt won't move aux fan comands into the start gcode if the 'only custom start gcode' is activated."
+        "\nUse 0 to deactivate.");
+    def->sidetext = L("s");
+    def->mode = comAdvancedE | comSuSi;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("aux_fan_speedup_overhangs", coBool);
+    def->label = L("Aux fan delay only for overhangs");
+    def->category = OptionCategory::firmware;
+    def->tooltip = L("Will only take into account the delay for the cooling of overhangs.");
+    def->mode = comAdvancedE | comSuSi;
+    def->set_default_value(new ConfigOptionBool(true));
+
     def = this->add("binary_gcode", coBool);
     def->label = L("Supports binary G-code");
     def->tooltip = L("Enable, if the firmware supports binary G-code format (bgcode). "
@@ -4062,6 +4247,19 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Add a M106 S255 (max speed for fan) for this amount of seconds before going down to the desired speed to kick-start the cooling fan."
                     "\nThis value is used for a 0->100% speedup, it will go down if the delta is lower."
                     "\nSet to 0 to deactivate.");
+    def->sidetext = L("s");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    // aux
+    def = this->add("aux_fan_kickstart", coFloat);
+    def->label = L("Aux fan KickStart time");
+    def->category = OptionCategory::firmware;
+    def->tooltip = L("Add a M106 S255 (max speed for aux fan) for this amount of seconds before going down to the "
+                     "desired speed to kick-start the cooling aux fan."
+                     "\nThis value is used for a 0->100% speedup, it will go down if the delta is lower."
+                     "\nSet to 0 to deactivate.");
     def->sidetext = L("s");
     def->min = 0;
     def->mode = comExpert | comSuSi;
@@ -4243,6 +4441,20 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionInts { 100 });
 
+    // aux
+    def = this->add("max_aux_fan_speed", coInts);
+    def->label = L("Max");
+    def->full_label = L("Max aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L(
+        "This setting represents the maximum speed of your aux fan, used when the layer print time is Very short.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comPrusa;
+    def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionInts{100});
+
     def = this->add("max_layer_height", coFloatsOrPercents);
     def->label = L("Max");
     def->full_label = L("Max layer height");
@@ -4346,6 +4558,14 @@ void PrintConfigDef::init_fff_params()
     def->category = OptionCategory::output;
     def->tooltip = L("Set this if your printer uses control values from 0-100 instead of 0-255.");
     def->cli = "fan-percentage";
+    def->mode = comAdvancedE | comSuSi;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("aux_fan_percentage", coBool);
+    def->label = L("Aux fan PWM from 0-100");
+    def->category = OptionCategory::output;
+    def->tooltip = L("Set this if your printer uses control values from 0-100 instead of 0-255.");
+    def->cli = "aux-fan-percentage";
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionBool(false));
 
@@ -4579,6 +4799,49 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert | comSuSi;
     def->set_default_value(enable_default_option(new ConfigOptionInt(2)));
 
+    def = this->add("overhangs_dynamic_aux_fan_speed", coGraphs);
+    def->label = L("Dynamic overhang speeds");
+    def->category = OptionCategory::speed;
+    def->tooltip = L(
+        "This setting can only works correctly if dynamic speed is also enabled (overhangs_dynamic_aux_fan_speed)."
+        "\nOverhang size is expressed as a percentage of overlap of the extrusion with the previous layer: "
+        "100% would be full overlap (no overhang), while 0% represents full overhang (floating extrusion, bridge)."
+        "\nAux fan speeds for overhang sizes in between are calculated via linear interpolation."
+        "\nIf enabled, overhangs_aux_fan_speed is disabled, as the aux fan speed for full overhang is used.");
+    def->sidetext = L("%");
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->mode = comExpert | comPrusa;
+    def->set_default_value(disable_default_option(new ConfigOptionGraphs(
+        {GraphData(0, 5, GraphData::GraphType::LINEAR, {{0, 100}, {25, 80}, {50, 60}, {75, 40}, {100, 20}})})));
+    def->graph_settings = std::make_shared<GraphSettings>();
+    def->graph_settings->title = L("Overhangs aux fan speed by % of overlap");
+    def->graph_settings->description = L(
+        "Choose the Overhangs maximum aux fan speed for each percentage of overlap with the layer below."
+        "If the current aux fan speed (from perimeter, external, of default) is higher, then this setting won't slow "
+        "the "
+        "aux fan."
+        "\n100% overlap is when the extrusion is fully on top of the previous layer's extrusion."
+        "\n0% overlap is when the extrusion centerline is at a distance of 'overhangs threshold for "
+        "speed'(overhangs_bridge_threshold)"
+        "\nfrom the nearest extrusion of the previous layer.");
+    def->graph_settings->x_label = L("overlap % with previous layer");
+    def->graph_settings->y_label = L("aux fan speed (%)");
+    def->graph_settings->null_label = L("No aux fan speed");
+    def->graph_settings->label_min_x = L("");
+    def->graph_settings->label_max_x = L("");
+    def->graph_settings->label_min_y = L("");
+    def->graph_settings->label_max_y = L("");
+    def->graph_settings->min_x = 0;
+    def->graph_settings->max_x = 100;
+    def->graph_settings->step_x = 1.;
+    def->graph_settings->min_y = 0;
+    def->graph_settings->max_y = 100;
+    def->graph_settings->step_y = 1.;
+    def->graph_settings->allowed_types = {GraphData::GraphType::LINEAR, GraphData::GraphType::SQUARE,
+                                          GraphData::GraphType::SPLINE};
+
+
     def             = this->add("overhangs_dynamic_fan_speed", coGraphs);
     def->label      = L("Dynamic overhang speeds");
     def->category   = OptionCategory::speed;
@@ -4722,6 +4985,21 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
+
+    // aux
+    def = this->add("overhangs_aux_fan_speed", coInts);
+    def->label = L("Overhangs Perimeter aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all Overhang Perimeter moves"
+                     "\nIf disabled, the previous (perimeter) aux fan speed will be used."
+                     "\nCan be overriden by disable_aux_fan_first_layers and increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
 
     def = this->add("overhangs_flow_ratio", coPercent);
     def->label = L("Overhangs flow ratio");
@@ -5011,6 +5289,23 @@ void PrintConfigDef::init_fff_params()
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
 
+    // aux
+    def = this->add("perimeter_aux_fan_speed", coInts);
+    def->label = L("Internal Perimeter aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all Perimeter moves"
+                     "\nSet to 0 to stop the aux fan."
+                     "\nIf disabled, default aux fan speed will be used."
+                     "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer and "
+                     "increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comExpert | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
+
     def = this->add("perimeter_loop", coBool);
     def->label = L("Perimeters loop");
     def->full_label = L("Perimeters loop");
@@ -5161,6 +5456,19 @@ void PrintConfigDef::init_fff_params()
     def->full_label = L("Minimum fan speed");
     def->category = OptionCategory::general;
     def->tooltip = L("This setting represents the minimum fan speed (like minimum PWM) your fan needs to work.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comSuSi;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    // aux
+    def = this->add("aux_fan_printer_min_speed", coInt);
+    def->label = L("Minimum aux fan speed");
+    def->full_label = L("Minimum aux fan speed");
+    def->category = OptionCategory::general;
+    def->tooltip = L(
+        "This setting represents the minimum aux fan speed (like minimum PWM) your aux fan needs to work.");
     def->sidetext = L("%");
     def->min = 0;
     def->max = 100;
@@ -6129,6 +6437,23 @@ void PrintConfigDef::init_fff_params()
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
 
+    // aux
+    def = this->add("solid_infill_aux_fan_speed", coInts);
+    def->label = L("Solid Infill aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all Solid Infill moves"
+                     "\nSet to 0 to stop the aux fan."
+                     "\nIf disabled, default aux fan speed will be used."
+                     "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer and "
+                     "increased by low layer time.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comExpert | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
+
     def = this->add("solid_infill_speed", coFloatOrPercent);
     def->label = L("Solid");
     def->full_label = L("Solid infill speed");
@@ -6507,6 +6832,22 @@ void PrintConfigDef::init_fff_params()
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
 
+    // aux
+    def = this->add("support_material_aux_fan_speed", coInts);
+    def->label = L("Support Material aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all support moves"
+                     "\nSet to 0 to stop the aux fan."
+                     "\nIf disabled, default aux fan speed will be used."
+                     "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comExpert | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
+
     def = this->add("support_material_interface_angle", coFloat);
     def->label = L("Pattern angle");
     def->full_label = L("Support interface pattern angle");
@@ -6543,6 +6884,23 @@ void PrintConfigDef::init_fff_params()
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
 
+    // aux
+    def = this->add("support_material_interface_aux_fan_speed", coInts);
+    def->label = L("Support interface aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L(
+        "This aux fan speed is enforced during all support interfaces, to be able to weaken their bonding "
+        "with a high aux fan speed."
+        "\nSet to 0 to stop the aux fan."
+        "\nIf disabled, Support Material aux fan speed will be used."
+        "\nCan only be overriden by disable_aux_fan_first_layers.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
 
     def = this->add("support_material_interface_contact_loops", coBool);
     def->label = L("Interface loops");
@@ -7067,6 +7425,22 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->can_be_disabled = true;
     def->set_default_value(disable_default_option(new ConfigOptionInts({ 100 })));
+
+    // aux
+    def = this->add("top_aux_fan_speed", coInts);
+    def->label = L("Top Solid aux fan speed");
+    def->category = OptionCategory::cooling;
+    def->tooltip = L("This aux fan speed is enforced during all top fills (including ironing)."
+                     "\nSet to 0 to stop the aux fan."
+                     "\nIf disabled, Solid Infill aux fan speed will be used."
+                     "\nCan be disabled by disable_aux_fan_first_layers, slowed down by full_aux_fan_speed_layer.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvancedE | comSuSi;
+    def->is_vector_extruder = true;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_default_option(new ConfigOptionInts({100})));
 
     def = this->add("top_infill_extrusion_width", coFloatOrPercent);
     def->label = L("Top solid infill");
@@ -9392,6 +9766,17 @@ void _handle_legacy(std::unordered_map<t_config_option_key, std::pair<t_config_o
             erase();
         }
     }
+    // aux
+    if (has(dict, "aux_fan_always_on"s)) {
+        if (value() != "1") {
+            // min_aux_fan_speed is already converted to default_aux_fan_speed, just has to deactivate it if not always_on
+            opt_key() = "default_aux_fan_speed"s; // note: maybe this doesn't works, as default_aux_fan_speed can also
+                                                  // get its value() from min_aux_fan_speed
+            value() = "0";
+        } else {
+            erase();
+        }
+    }
     if (has(dict, "arc_fitting"s)) {
         if (value() == "1")
             value() = "bambu";
@@ -9434,7 +9819,21 @@ void _handle_legacy(std::unordered_map<t_config_option_key, std::pair<t_config_o
     for_ech_entry(dict, {
         "bridge_fan_speed"s, "default_fan_speed"s, "min_fan_speed"s/* this is default_fan_speed's alias*/, "external_perimeter_fan_speed"s,
         "gap_fill_fan_speed"s, "infill_fan_speed"s, "internal_bridge_fan_speed"s, "bridge_internal_fan_speed"s, "overhangs_fan_speed"s,
-        "perimeter_fan_speed"s, "solid_infill_fan_speed"s, "support_material_fan_speed"s, "support_material_interface_fan_speed"s, "top_fan_speed"s},
+        "perimeter_fan_speed"s, "solid_infill_fan_speed"s, "support_material_fan_speed"s, "support_material_interface_fan_speed"s, "top_fan_speed"s,
+                   "bridge_aux_fan_speed"s,
+                   "default_aux_fan_speed"s,
+                   "min_aux_fan_speed"s /* this is default_fan_speed's alias*/,
+                   "external_perimeter_aux_fan_speed"s,
+                   "gap_fill_aux_fan_speed"s,
+                   "infill_aux_fan_speed"s,
+                   "internal_bridge_aux_fan_speed"s,
+                   "bridge_internal_aux_fan_speed"s,
+                   "overhangs_aux_fan_speed"s,
+                   "perimeter_aux_fan_speed"s,
+                   "solid_infill_aux_fan_speed"s,
+                   "support_material_aux_fan_speed"s,
+                   "support_material_interface_aux_fan_speed"s,
+                   "top_aux_fan_speed"s},
                   [](Key &opt_key, Val &value) {
             assert(print_config_def.get(opt_key) && print_config_def.get(opt_key)->type == coInts);
             //if vector, split it.
@@ -10009,6 +10408,21 @@ std::map<std::string,std::string> PrintConfigDef::from_prusa(t_config_option_key
             }
         }
     }
+
+    // aux
+    if ("aux_fan_always_on" == opt_key) {
+        opt_key = "";
+        // min_aux_fan_speed is already converted to default_aux_fan_speed, just has to deactivate it if not always_on
+        if (value != "1") {
+            if (all_conf.option("default_aux_fan_speed")) {
+                output["default_aux_fan_speed"] = std::string("!") +
+                    all_conf.option("default_aux_fan_speed")->serialize();
+            } else {
+                output["default_aux_fan_speed"] = "!0";
+            }
+        }
+    }
+
     if ("bridge_angle" == opt_key && "0" == value) {
         value = "!0";
     }
@@ -10368,7 +10782,24 @@ std::unordered_set<std::string> prusa_export_to_remove_keys = {
 "default_speed",
 "enforce_full_fill_volume",
 // "exact_last_layer_height",
-"external_infill_margin",
+    "external_perimeter_aux_fan_speed",
+    "aux_fan_kickstart",
+    "aux_fan_percentage",
+    "aux_fan_printer_min_speed",
+    "aux_fan_speedup_overhangs",
+    "aux_fan_speedup_time",
+    "gap_fill_aux_fan_speed",
+    "infill_aux_fan_speed",
+    "internal_bridge_aux_fan_speed",
+    "overhangs_aux_fan_speed",
+    "perimeter_aux_fan_speed",
+    "solid_infill_aux_fan_speed",
+    "support_material_aux_fan_speed",
+    "support_material_interface_aux_fan_speed",
+    "top_aux_fan_speed",
+
+
+    "external_infill_margin",
 "external_perimeter_cut_corners",
 "external_perimeter_extrusion_spacing",
 "external_perimeter_extrusion_change_odd_layers",

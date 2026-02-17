@@ -127,11 +127,24 @@ public:
     static bool supports_separate_travel_acceleration(GCodeFlavor flavor);
 
     // To be called by the CoolingBuffer from another thread.
-    static std::string set_fan(const GCodeFlavor gcode_flavor, bool gcode_comments, uint8_t speed, uint8_t tool_fan_offset, bool is_fan_percentage, const std::string_view comment = {});
+    static std::string set_fan(const GCodeFlavor gcode_flavor,
+                               bool gcode_comments,
+                               uint8_t speed,
+                               unsigned int index,
+                               uint8_t tool_fan_offset,
+                               bool is_fan_percentage,
+                               const std::string_view comment = {});
     // To be called by the main thread. It always emits the G-code, it does remember the previous state to be able to reset after the wipe tower (but remove that when the wipe tower will be extrusions and not string).
     // Keeping the state is left to the CoolingBuffer, which runs asynchronously on another thread.
-    std::string set_fan(uint8_t speed, uint16_t default_tool = 0);
-    uint8_t get_fan() { return m_last_fan_speed; }
+    std::string set_fan(uint8_t speed, unsigned int index = 0, uint16_t default_tool = 0);
+    uint8_t get_fan(unsigned int index) {
+        if (index == 0)
+            return m_last_fan_speed;
+        else
+            return m_last_aux_fan_speed;
+    }
+
+    std::string set_overlap(double over);
 
     GCodeFormatter get_default_gcode_formatter() const { return GCodeFormatter(config.gcode_precision_xyz, config.gcode_precision_e); }
 
@@ -158,6 +171,7 @@ private:
     //uint32_t        m_max_travel_acceleration;
     double          m_current_speed = 0;
     uint8_t         m_last_fan_speed = 0;
+    uint8_t m_last_aux_fan_speed = 0;
     int16_t         m_last_temperature = 0;
     int16_t         m_last_temperature_with_offset = 0;
     bool            m_last_temperature_with_offset_waited = false;

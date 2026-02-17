@@ -118,11 +118,11 @@ namespace Slic3r {
             MoveVertex() {}
             MoveVertex(uint32_t gcode_id, EMoveType type, GCodeExtrusionRole extrusion_role, uint8_t extruder_id,
                 uint8_t cp_color_id, uint16_t object_id, Vec3f position, float delta_extruder, float feedrate, float width, float height,
-                float mm3_per_mm, float fan_speed, float temperature, float time, uint16_t layer_id,
+                       float mm3_per_mm, float fan_speed, float aux_fan_speed, float overlap, float temperature, float time, uint16_t layer_id,
                 bool internal_only) :
                 gcode_id(gcode_id), type(type), extrusion_role(extrusion_role), extruder_id(extruder_id), 
                 cp_color_id(cp_color_id), object_id(object_id), position(position), delta_extruder(delta_extruder), feedrate(feedrate), 
-                width(width), height(height), mm3_per_mm(mm3_per_mm), fan_speed(fan_speed), 
+                width(width), height(height), mm3_per_mm(mm3_per_mm), fan_speed(fan_speed), aux_fan_speed(aux_fan_speed), overlap(overlap), 
                 temperature(temperature), move_time(time), layer_id(layer_id),
                 internal_only(internal_only) {
             }
@@ -140,6 +140,8 @@ namespace Slic3r {
             float height{ 0.0f }; // mm
             float mm3_per_mm{ 0.0f };
             float fan_speed{ 0.0f }; // percentage
+            float aux_fan_speed{0.0f}; // percentage
+            float overlap{0.0f};
             float temperature{ 0.0f }; // Celsius degrees
             float move_time{ 0.0f }; // s (TODO: for each mode (silent or not) )
             uint16_t layer_id{ 0 };
@@ -612,6 +614,8 @@ namespace Slic3r {
         float m_forced_height; // mm
         float m_mm3_per_mm;
         float m_fan_speed; // percentage
+        float m_aux_fan_speed; // percentage
+        float m_overlap;
         float m_z_offset; // mm
         GCodeExtrusionRole m_extrusion_role;
         uint16_t m_extruder_id;

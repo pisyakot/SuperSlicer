@@ -544,6 +544,8 @@ private:
     std::vector<double>                 m_last_layer_used_filament;
     // to pass between before_xtrude and after_extrude.
     double                              m_overhang_fan_override{ -1.0 };
+    double m_overhang_aux_fan_override{-1.0};
+    double m_overlap_override{-1.0};
     // from extrusion properties.
     std::vector<const ExtrusionEntity*> m_current_entity;
     std::vector<std::pair<const ExtrusionEntity*, const ExtrusionPropertySpeed*>> m_speed_override;
@@ -617,6 +619,7 @@ private:
 
     //some post-processing on the file, with their data class
     std::unique_ptr<FanMover> m_fan_mover;
+    std::unique_ptr<FanMover> m_aux_fan_mover;
 
     std::function<void()> m_throw_if_canceled = [](){};
 
@@ -626,7 +629,7 @@ private:
     void                      _extrude_line_cut_corner(std::string& gcode_str, const Line& line, const double e_per_mm, const std::string_view comment, Point& last_pos, const double path_width);
     std::string               _before_extrude(const ExtrusionPath &path, const std::string_view description, double speed = -1);
     std::string               _travel_before_extrude(const ExtrusionPath &path, const std::string_view description, double speed_mm_s = -1);
-    double_t                  _compute_speed_mm_per_sec(const ExtrusionPath &path_attrs, const double speed, double &fan_speed, std::string *comment) const;
+    double_t _compute_speed_mm_per_sec(const ExtrusionPath &path_attrs, const double speed, double &fan_speed, double &aux_fan_speed, std::string *comment) const;
     std::pair<double, double> _compute_acceleration(const ExtrusionPath &path);
     std::pair<double, double> _compute_pressure_advance(const ExtrusionPath &path);
     std::string               _after_extrude(const ExtrusionPath &path);

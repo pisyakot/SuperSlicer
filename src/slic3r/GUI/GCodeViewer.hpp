@@ -199,6 +199,8 @@ class GCodeViewer
         Width,
         Feedrate,
         FanSpeed,
+        AuxFanSpeed,
+        Overlap,
         Temperature,
         LayerTime,
         Chronology,
@@ -360,6 +362,10 @@ class GCodeViewer
             Range feedrate;
             // Color mapping by fan speed.
             Range fan_speed;
+            // Color mapping by aux fan speed.
+            Range aux_fan_speed;
+
+            Range overlap;
             // Color mapping by volumetric extrusion rate.
             Range volumetric_rate;
             // Color mapping by volumetric extrusion mm3/mm.
@@ -382,6 +388,8 @@ class GCodeViewer
                 width.reset();
                 feedrate.reset();
                 fan_speed.reset();
+                aux_fan_speed.reset();
+                overlap.reset();
                 volumetric_rate.reset();
                 volumetric_flow.reset();
                 temperature.reset();
@@ -449,6 +457,8 @@ class GCodeViewer
         float width{ 0.0f };
         float feedrate{ 0.0f };
         float fan_speed{ 0.0f };
+        float aux_fan_speed{0.0f};
+        float overlap{0.0f};
         float temperature{ 0.0f };
         float volumetric_rate{ 0.0f };
         float volumetric_flow{ 0.0f };

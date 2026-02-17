@@ -937,6 +937,7 @@ static std::vector<std::string> s_Preset_print_options {
         //Arachne
         "perimeter_generator", "wall_transition_length", "wall_transition_filter_deviation", "wall_transition_angle",
         "wall_distribution_count", "min_feature_size", "min_bead_width",
+        
 };
 
 static std::vector<std::string> s_Preset_filament_options {
@@ -1044,6 +1045,24 @@ static std::vector<std::string> s_Preset_filament_options {
         "filament_wipe_advanced_pigment",
         "chamber_temperature",
         "filament_pressure_advance",
+        // aux fan
+        "default_aux_fan_speed",
+        "max_aux_fan_speed",
+        "bridge_aux_fan_speed",
+        "external_perimeter_aux_fan_speed",
+        "gap_fill_aux_fan_speed",
+        "infill_aux_fan_speed",
+        "internal_bridge_aux_fan_speed",
+        "overhangs_aux_fan_speed",
+        "overhangs_dynamic_aux_fan_speed",
+        "perimeter_aux_fan_speed",
+        "solid_infill_aux_fan_speed",
+        "support_material_aux_fan_speed",
+        "support_material_interface_aux_fan_speed",
+        "top_aux_fan_speed",
+        "disable_aux_fan_first_layers",
+        "full_aux_fan_speed_layer",
+        "aux_fan_below_layer_time",
 };
 
 static std::vector<std::string> s_Preset_machine_limits_options {
@@ -1125,6 +1144,11 @@ static std::vector<std::string> s_Preset_printer_options {
     "time_cost",
     "time_start_gcode",
     "time_toolchange",
+    "aux_fan_kickstart",
+    "aux_fan_speedup_overhangs",
+    "aux_fan_speedup_time",
+    "aux_fan_percentage",
+    "aux_fan_printer_min_speed",
 };
 
 static std::vector<std::string> s_Preset_sla_print_options {
