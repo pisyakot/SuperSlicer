@@ -27,6 +27,7 @@
 #include "PrintConfig.hpp"
 #include "Geometry/ArcWelder.hpp"
 #include "GCode/AvoidCrossingPerimeters.hpp"
+#include "GCode/ExcludePrintSpeeds.hpp"
 #include "GCode/CoolingBuffer.hpp"
 #include "GCode/FanMover.hpp"
 #include "GCode/FindReplace.hpp"
@@ -588,6 +589,8 @@ private:
     std::shared_ptr<WipeTowerLayer>     m_wipe_tower_current_layer;
     // to get extruded volume, for stats
     const WipeTowerData                *m_wipe_tower_data;
+
+    std::shared_ptr<ExcludePrintSpeeds> m_exclude_print_speeds;
 
     // Heights (print_z) at which the skirt has already been extruded.
     std::vector<coord_t>                m_skirt_done;

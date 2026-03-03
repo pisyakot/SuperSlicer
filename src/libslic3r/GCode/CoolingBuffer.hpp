@@ -12,6 +12,7 @@
 #define slic3r_CoolingBuffer_hpp_
 
 #include "../libslic3r.h"
+#include "ExcludePrintSpeeds.hpp"
 #include <map>
 #include <string>
 
@@ -38,13 +39,15 @@ public:
     /// process the layer: check the time and apply fan / speed change
     /// append_time_only: if the layer is only support, then you can put this at true to not process the layer but just append its time to the next one.
     std::string process_layer(std::string &&gcode, size_t layer_id, bool flush, bool append_time_only = false);
-    std::string process_layer(const std::string &gcode, size_t layer_id, bool flush)
-        { return this->process_layer(std::string(gcode), layer_id, flush); }
+    std::string process_layer(const std::string &gcode, size_t layer_id, bool flush) { return this->process_layer(std::string(gcode), layer_id, flush); }
+    void set_exclude_print_speed_filter(std::shared_ptr<ExcludePrintSpeeds> _exclude_print_speeds_filter) { exclude_print_speeds_filter = std::move(_exclude_print_speeds_filter); }
 
 private:
 	CoolingBuffer& operator=(const CoolingBuffer&) = delete;
     std::vector<PerExtruderAdjustments> parse_layer_gcode(const std::string &gcode, std::array<float, 7> &current_pos) const;
-    float       calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments);
+
+    float calculate_layer_slowdown(std::vector<PerExtruderAdjustments> &per_extruder_adjustments);
+    float calculate_layer_slowdown_exclude_print_speeds(std::vector<PerExtruderAdjustments> &per_extruder_adjustments);
     // Apply slow down over G-code lines stored in per_extruder_adjustments, enable fan if needed.
     // Returns the adjusted G-code.
     std::string apply_layer_cooldown(const std::string &gcode, size_t layer_id, float layer_time, std::vector<PerExtruderAdjustments> &per_extruder_adjustments);
@@ -74,9 +77,10 @@ private:
     std::map<size_t, float> saved_layer_time_support;
     std::map<size_t, float> saved_layer_time_object;
 
+    std::shared_ptr<ExcludePrintSpeeds> exclude_print_speeds_filter{nullptr};
 
     // Old logic: proportional.
-    bool                        m_cooling_logic_proportional = false;
+    bool m_cooling_logic_proportional = false;
 };
 
 }

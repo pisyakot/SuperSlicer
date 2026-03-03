@@ -1424,6 +1424,17 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
         m_pressure_equalizer = make_unique<PressureEqualizer>(print.config());
     m_enable_extrusion_role_markers = (bool)m_pressure_equalizer;
 
+    //try
+    {
+        if (!print.config().exclude_print_speed_ranges.empty())            
+            m_exclude_print_speeds = std::make_shared<ExcludePrintSpeeds>(print.config().exclude_print_speed_ranges, print.config().exclude_print_speed_adjustment_direction);
+    }
+    /*catch (std::exception &e)
+    {
+        throw Slic3r::SlicingError(L("Error on excluded print speeds:\n" + L(e.what())));
+    }*/
+
+
     std::string preamble_to_put_start_layer = "";
 
     // if thumbnail type of BTT_TFT, insert above header
@@ -1604,6 +1615,7 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
 
     m_cooling_buffer = make_unique<CoolingBuffer>(*this);
     m_cooling_buffer->set_current_extruder(initial_extruder_id);
+    m_cooling_buffer->set_exclude_print_speed_filter(m_exclude_print_speeds);
 
     // Emit machine envelope limits for the Marlin firmware.
     this->print_machine_envelope(file, print);
@@ -7243,12 +7255,16 @@ double_t GCodeGenerator::_compute_speed_mm_per_sec(const ExtrusionPath &path,
             // OverhangPerimeter or OverhangExternalPerimeter
             speed = m_config.get_computed_value("overhangs_speed");
             if(comment) *comment = "overhangs_speed";
+            if (m_exclude_print_speeds)
+                speed = m_exclude_print_speeds->adjust_speed_if_in_forbidden_range(speed);
         } else if (path.role() == ExtrusionRole::Perimeter) {
             speed = m_config.get_computed_value("perimeter_speed");
             if(comment) *comment = "perimeter_speed";
         } else if (path.role() == ExtrusionRole::ExternalPerimeter) {
             speed = m_config.get_computed_value("external_perimeter_speed");
             if(comment) *comment = "external_perimeter_speed";
+            if (m_exclude_print_speeds)
+                speed = m_exclude_print_speeds->adjust_speed_if_in_forbidden_range(speed);
         } else if (path.role() == ExtrusionRole::BridgeInfill) {
             speed = m_config.get_computed_value("bridge_speed");
             if(comment) *comment = "bridge_speed";

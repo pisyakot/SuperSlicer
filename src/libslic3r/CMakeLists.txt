@@ -212,6 +212,8 @@ set(SLIC3R_SOURCES
     GCode/GCodeProcessor.hpp
     GCode/AvoidCrossingPerimeters.cpp
     GCode/AvoidCrossingPerimeters.hpp
+	GCode/ExcludePrintSpeeds.cpp
+    GCode/ExcludePrintSpeeds.hpp
     GCode/Travels.cpp
     GCode/Travels.hpp
     GCode.cpp

@@ -720,6 +720,7 @@ static std::vector<std::string> s_Preset_print_options {
         "max_print_speed",
         "autospeed_min_thin_flow",
         "max_volumetric_speed",
+        "exclude_print_speed_ranges", "exclude_print_speed_adjustment_direction",
         // gapfill
         "gap_fill_enabled",
         "gap_fill_extension",

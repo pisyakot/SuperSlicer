@@ -384,6 +384,11 @@ static t_config_enum_values s_keys_map_PerimeterGeneratorType {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(PerimeterGeneratorType)
 
+static const t_config_enum_values s_keys_map_ExcludePrintSpeedsAdjustmentDirection{{"lowest", epsdLowest},
+                                                                                   {"highest", epsdHighest},
+                                                                                   {"nearest", epsdNearest}};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(ExcludePrintSpeedsAdjustmentDirection)
+
 static const t_config_enum_values s_keys_map_EnsureVerticalShellThickness {
     { "disabled", int(EnsureVerticalShellThickness::Disabled) },
     { "partial",  int(EnsureVerticalShellThickness::Partial)  },
@@ -2237,6 +2242,40 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comPrusa;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionFloats{ 0. });
+
+    def = this->add("exclude_print_speed_ranges", coString);
+    def->label = L("Excluded speed ranges (in mm/s)");
+    def->tooltip = L(
+        "Speed ranges to be excluded. Example input form: 30-40, 60-80. "
+        "If any speeds fall in these ranges, they will be raised/lowered "
+        "according to the adjustment direction. One use case for this feature"
+        " is to avoid CoreXY kinematic resonances. In its current state, only speeds set by the user in the speed "
+        "section will be affected, not speeds set by the minimum layer time. "
+        "\nLeave empty to disable.");
+    def->mode = comExpert | comSuSi;
+    // def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionString{""});
+
+    def = this->add("exclude_print_speed_adjustment_direction", coEnum);
+    def->label = L("Adjustment direction");
+    def->full_label = L("Exclude print speed adjustment direction");
+    def->category = OptionCategory::speed;
+    def->tooltip = L("This option decides which direction to adjust any invalid print speeds."
+                     //        "\n * None: Warn the user that print speeds in the invalid region are in effect, but do
+                     //        not alter them." // TODO - CHKA
+                     "\n * Lowest:  drop the speed to the lowest value of the range."
+                     "\n * Highest: raise the speed to the highest value of the range."
+                     "\n * Nearest: change the speed to whichever value of the above is closest to the speed set.");
+    def->set_enum<ExcludePrintSpeedsAdjustmentDirection>({
+                                                            {"lowest", L("Lowest")},
+                                                            {"highest", L("Highest")},
+                                                            {"nearest", L("Nearest")},
+                                                        });
+    //def->mode = comSimpleAE | comPrusa;
+    def->mode = comExpert | comSuSi;
+    def->set_default_value(new ConfigOptionEnum<ExcludePrintSpeedsAdjustmentDirection>(epsdLowest));
+
+
 
     def = this->add("filament_max_wipe_tower_speed", coFloats);
     def->label = L("Max speed on the wipe tower");
@@ -10782,6 +10821,8 @@ std::unordered_set<std::string> prusa_export_to_remove_keys = {
 "default_speed",
 "enforce_full_fill_volume",
 // "exact_last_layer_height",
+
+    "exclude_print_speed_ranges", "exclude_print_speed_adjustment_direction",
     "external_perimeter_aux_fan_speed",
     "aux_fan_kickstart",
     "aux_fan_percentage",
@@ -10798,8 +10839,7 @@ std::unordered_set<std::string> prusa_export_to_remove_keys = {
     "support_material_interface_aux_fan_speed",
     "top_aux_fan_speed",
 
-
-    "external_infill_margin",
+"external_infill_margin",
 "external_perimeter_cut_corners",
 "external_perimeter_extrusion_spacing",
 "external_perimeter_extrusion_change_odd_layers",
