@@ -69,6 +69,7 @@ const std::vector<std::string> GCodeProcessor::Reserved_Tags = {
     "_GP_ESTIMATED_PRINTING_TIME_PLACEHOLDER",
     " printing object",
     " stop printing object",
+    "OVERLAP",
 };
 
 const float GCodeProcessor::Wipe_Width = 0.05f;
@@ -2016,23 +2017,6 @@ void GCodeProcessor::process_gcode_line(const GCodeReader::GCodeLine& line, bool
                         break;
                     }
                     break;
-                case '9':
-                    switch (cmd[2]) {
-                    case '9':
-                        switch (cmd[3]) {
-                        case '9': {
-                            float new_overlap;
-                            if (line.has_value('P', new_overlap))
-                                m_overlap = new_overlap;
-                            else
-                                m_overlap = 0.0f;
-                            break;
-                        } // Set extruder temperature
-                        }
-                    }
-                    break;
-                default:
-                    break;
                 }
                 break;
             default:
@@ -2103,6 +2087,12 @@ template<typename T>
 
 void GCodeProcessor::process_tags(const std::string_view comment, bool producers_enabled)
 {
+    if (boost::starts_with(comment, reserved_tag(ETags::Overlap))) {
+        std::string_view val = comment.substr(reserved_tag(ETags::Overlap).size() + 1);
+        bool ok = parse_number(val, m_overlap);
+        return;
+    }
+
     // producers tags
     if (producers_enabled && process_producers_tags(comment))
         return;

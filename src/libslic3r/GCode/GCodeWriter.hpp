@@ -144,8 +144,6 @@ public:
             return m_last_aux_fan_speed;
     }
 
-    std::string set_overlap(double over);
-
     GCodeFormatter get_default_gcode_formatter() const { return GCodeFormatter(config.gcode_precision_xyz, config.gcode_precision_e); }
 
     static std::string get_default_pause_gcode(const GCodeConfig &config);

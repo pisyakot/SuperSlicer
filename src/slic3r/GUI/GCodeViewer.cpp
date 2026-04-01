@@ -4473,7 +4473,7 @@ void GCodeViewer::render_legend(float& legend_height)
     if (!m_layers_times.empty() && 
         (m_layers.size() == m_layers_times.front().size() || m_layers.size() == 1 + m_layers_times.front().size()))
     {
-        view_options = { _u8L("Feature type"),
+        /*view_options = { _u8L("Feature type"),
                          _u8L("Height (mm)"),
                          _u8L("Width (mm)"),
                          _u8L("Speed (mm/s)"),
@@ -4488,14 +4488,30 @@ void GCodeViewer::render_legend(float& legend_height)
                          _u8L("Tool"),
                          _u8L("Filament"),
                          _u8L("Color Print"),
-                         _u8L("Object") };
-        //view_options_id = { 0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 10, 11, 12, 13 };
+                         _u8L("Object") };*/
+        view_options = {_u8L("Feature type"),
+                        _u8L("Height (mm)"),
+                        _u8L("Width (mm)"),
+                        _u8L("Speed (mm/s)"),
+                        _u8L("Fan speed (%)"),
+                        _u8L("Aux fan speed (%)"),
+                        _u8L("Overlap"),
+                        _u8L("Temperature (°C)"),
+                        _u8L("Layer duration"),
+                        _u8L("Chronology"),
+                        _u8L("Volumetric flow rate (mm³/s)"),
+                        _u8L("Extrusion section (mm³/mm)"),
+                        
+                        _u8L("Tool"),
+                        _u8L("Filament"),
+                        _u8L("Color Print"),
+                        _u8L("Object")};
         view_options_id = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
         assert(view_options_id.size() == size_t(EViewType::Count));
         assert(view_options_id.back() < size_t(EViewType::Count));
     }
     else {
-        view_options = { _u8L("Feature type"),
+        /*view_options = { _u8L("Feature type"),
                          _u8L("Height (mm)"),
                          _u8L("Width (mm)"),
                          _u8L("Speed (mm/s)"),
@@ -4508,10 +4524,26 @@ void GCodeViewer::render_legend(float& legend_height)
                          _u8L("Tool"),
                          _u8L("Filament"),
                          _u8L("Color Print"),
-                         _u8L("Object") };
-        //view_options_id = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13 };
+                         _u8L("Object") };*/
+        view_options = {_u8L("Feature type"),
+                        _u8L("Height (mm)"),
+                        _u8L("Width (mm)"),
+                        _u8L("Speed (mm/s)"),
+                        _u8L("Fan speed (%)"),
+                        _u8L("Aux fan speed (%)"),
+                        _u8L("Overlap"),
+                        _u8L("Temperature (°C)"),
+                        _u8L("Layer duration"),
+                        _u8L("Chronology"),
+                        _u8L("Volumetric flow rate (mm³/s)"),
+                        _u8L("Extrusion section (mm³/mm)"),
+
+                        _u8L("Tool"),
+                        _u8L("Filament"),
+                        _u8L("Color Print"),
+                        _u8L("Object")};
         view_options_id = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-        assert(view_options_id.size() == size_t(EViewType::Count) - 2);
+        //assert(view_options_id.size() == size_t(EViewType::Count) - 2);
         assert(view_options_id.back() < size_t(EViewType::Count));
         if (view_type == EViewType::LayerTime || view_type == EViewType::Chronology )
             view_type = EViewType::FeatureType;

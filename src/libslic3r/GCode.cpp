@@ -6370,7 +6370,6 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
         0;
     double fan_speed;
     double aux_fan_speed;
-    double overlap;
     //if (max_gcode_per_second > 0) {
     //    // if (broken) max_gcode_per_second is used, simplify the segment with it
     //    const int32_t gcode_buffer_window = this->config().gcode_command_buffer.value;
@@ -7983,16 +7982,19 @@ std::string GCodeGenerator::_before_extrude(const ExtrusionPath &path, const std
         m_writer.set_pressure_advance(pa);
     }
 
-    /*
-    if (path.attributes().overhang_attributes.has_value()) {
-        overlap =
-            std::min(100 - 100 * std::min(1.f, path.attributes().overhang_attributes->start_distance_from_prev_layer),
-                     100 - 100 * std::min(1.f, path.attributes().overhang_attributes->end_distance_from_prev_layer));
+    //
+    float overlap  = 100.0f;
+    if (path.overhang_attributes())
+    {
+        overlap = std::min(100 - 100 * std::min(1.f, path.overhang_attributes()->start_distance_from_prev_layer),
+                           100 - 100 * std::min(1.f, path.overhang_attributes()->end_distance_from_prev_layer));
     }
     else
-        overlap = 100;
-    gcode += this->m_writer.set_overlap(m_overlap_override);
-    */
+    {
+        if ((path.role() == ExtrusionRole::BridgeInfill) || (path.role() == ExtrusionRole::InternalBridgeInfill))
+            overlap = 0.0f;
+    }
+    gcode += ";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Overlap) + ":" + to_string_nozero(overlap, 3) + "\n";    
 
     gcode += this->_travel_before_extrude(path, description_in, speed_mm_s);
 

@@ -1317,12 +1317,4 @@ std::string GCodeWriter::set_fan(const uint8_t speed, unsigned int index, uint16
                                 index == 0 ? this->config.fan_percentage.value :
                                              this->config.aux_fan_percentage.value);
 }
-std::string GCodeWriter::set_overlap(double over) {
-    std::ostringstream gcode;
-    gcode << "M999 P";
-    gcode << over;
-
-    return gcode.str();
-}
-
 } // namespace Slic3r
